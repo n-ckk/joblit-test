@@ -1,18 +1,41 @@
-!pip install streamlit
 import streamlit as st
+import nltk
 from joblib import load
-import numpy as np
 
-# Load the model
-model = load('linear_regression_model.joblib')
+# Download NLTK resources if not already downloaded
+nltk.download('punkt')
 
-# Create a simple user input
-user_input = st.number_input('Enter house size:', min_value=100, max_value=10000, step=50)
+# Load the saved Naive Bayes classifier
+bayes = load('bayes_classifier.joblib')
 
-# Reshape the input for the model
-input_array = np.array([user_input]).reshape(-1, 1)
+# Load the vocabulary saved in Question 3 (must load BEFORE the function uses it)
+with open('top_keys.txt', 'r') as f:
+    topKeys = [word.strip() for word in f.readlines()]
 
-# Predict the house price
-if st.button('Predict Price'):
-    predicted_price = model.predict(input_array)
-    st.write(f"The predicted house price is: ${predicted_price[0]:.2f}")
+# Sparse checklist: only send True words, absent words stay silent
+def review_features_sparse(tokens):
+    docSet = set(tokens)
+    return {word: True for word in topKeys if word in docSet}
+
+# Streamlit app
+def main():
+    st.title('Movie Review Sentiment Analysis')
+    st.write('Enter a movie review to predict its sentiment.')
+
+    review = st.text_area('Review:')
+
+    if st.button('Predict Sentiment'):
+        if review.strip() != '':
+            # Same steps as the notebook loop: lowercase -> tokenize -> sparse -> predict
+            tokens = nltk.word_tokenize(review.lower())
+            features = review_features_sparse(tokens)
+            dist = bayes.prob_classify(features)
+            sentiment = dist.max()
+
+            st.success(f'Predicted sentiment: {sentiment}')
+            st.write(f'pos = {dist.prob("pos"):.3f}, neg = {dist.prob("neg"):.3f}')
+        else:
+            st.warning('Please enter a movie review.')
+
+if __name__ == '__main__':
+    main()
